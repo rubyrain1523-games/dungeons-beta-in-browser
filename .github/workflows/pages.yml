@@ -1,0 +1,92 @@
+name: Build and deploy browser version
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+
+      - name: Check out Boxedwine
+        uses: actions/checkout@v4
+        with:
+          repository: danoon2/Boxedwine
+          ref: ef9b162114007d25ded8eed1784dac043ba65016
+          path: .boxedwine
+
+      - name: Set up Emscripten
+        uses: emscripten-core/setup-emsdk@0822153d7a5488b70a269cfa0a631b2a86ab4da2
+        with:
+          version: latest
+
+      - name: Prepare game and Wine filesystem
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          game_dir="dungeons-legends/narration-build-2017/Narration_NoGeneratedLevel_20170216"
+          test -f "$game_dir/Minecraft.Win32.OGL.exe"
+          test -f "$game_dir/fmod.dll"
+          test -d "$game_dir/data"
+          test -d "$game_dir/games"
+
+          emscripten_dir="$GITHUB_WORKSPACE/.boxedwine/project/emscripten"
+          curl --fail --location --retry 3 \
+            https://boxedwine.org/v2/41/TinyCore15Wine11.0-web.zip \
+            --output "$emscripten_dir/boxedwine.zip"
+          echo "d950fe71d6c078e7218a143f675fde80f80e5c451a8c07a43d6425302be900c0  $emscripten_dir/boxedwine.zip" \
+            | sha256sum --check
+          unzip -tq "$emscripten_dir/boxedwine.zip"
+
+          game_parent="$(dirname "$game_dir")"
+          game_name="$(basename "$game_dir")"
+          (
+            cd "$game_parent"
+            zip -rq "$emscripten_dir/$game_name.zip" "$game_name" \
+              -x '*.pdb' '*.ilk'
+          )
+
+      - name: Build Boxedwine WebAssembly runtime
+        run: make -C .boxedwine/project/emscripten jit
+
+      - name: Assemble Pages artifact
+        run: |
+          mkdir -p site/runtime
+          cp -a .boxedwine/project/emscripten/Build/Jit/. site/runtime/
+          cp .boxedwine/license.txt site/runtime/license.txt
+          cp .boxedwine/project/emscripten/boxedwine.zip site/boxedwine.zip
+          cp \
+            .boxedwine/project/emscripten/Narration_NoGeneratedLevel_20170216.zip \
+            site/Narration_NoGeneratedLevel_20170216.zip
+          cp index.html site/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

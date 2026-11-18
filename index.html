@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minecraft Dungeons Narration Build</title>
+  </head>
+  <body>
+    <p>Loading the browser emulator...</p>
+    <p><a href="./runtime/boxedwine.html?root=boxedwine.zip&amp;rootBase=./&amp;app=Narration_NoGeneratedLevel_20170216.zip&amp;appBase=./&amp;p=Minecraft.Win32.OGL.exe&amp;auto=true">Start the build</a></p>
+    <script>
+      const runtime = new URL("./runtime/boxedwine.html", window.location.href);
+      runtime.search = new URLSearchParams({
+        root: "boxedwine.zip",
+        rootBase: "./",
+        app: "Narration_NoGeneratedLevel_20170216.zip",
+        appBase: "./",
+        p: "Minecraft.Win32.OGL.exe",
+        auto: "true"
+      });
+      window.location.replace(runtime);
+    </script>
+  </body>
+</html>
